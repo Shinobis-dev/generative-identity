@@ -1,0 +1,616 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Generative Identity — Deterministic Visual Patterns from Text</title>
+<meta name="description" content="Type any text and get a unique SVG pattern and ASCII art. Same input, same output, every time. No backend, no tracking, no dependencies. Built by Shinobis.">
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Space+Grotesk:wght@400;600;700&display=swap');
+
+  :root {
+    --bg: #0e0e0e;
+    --surface: #1a1a1a;
+    --border: #2a2a2a;
+    --text: #e0e0e0;
+    --text-muted: #777;
+    --accent: #b8a070;
+    --accent-dim: rgba(184, 160, 112, 0.15);
+    --mono: 'JetBrains Mono', monospace;
+    --sans: 'Space Grotesk', sans-serif;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  header {
+    width: 100%;
+    max-width: 960px;
+    padding: 48px 24px 0;
+  }
+
+  header h1 {
+    font-family: var(--mono);
+    font-size: 14px;
+    font-weight: 400;
+    color: var(--accent);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  .intro {
+    width: 100%;
+    max-width: 960px;
+    padding: 16px 24px 0;
+  }
+
+  .intro p {
+    color: var(--text-muted);
+    font-size: 15px;
+    line-height: 1.7;
+
+  }
+
+  .intro p + p { margin-top: 12px; }
+  .intro .accent-text { color: var(--accent); }
+  .intro a { color: var(--accent); text-decoration: none; }
+  .intro a:hover { text-decoration: underline; }
+
+  .input-area {
+    width: 100%;
+    max-width: 960px;
+    padding: 32px 24px;
+  }
+
+  #seed-input {
+    width: 100%;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 15px;
+    padding: 14px 18px;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+
+  #seed-input:focus { border-color: var(--accent); }
+  #seed-input::placeholder { color: var(--text-muted); }
+
+  .style-selector {
+    display: flex;
+    gap: 8px;
+    margin-top: 12px;
+  }
+
+  .style-btn {
+    flex: 1;
+    text-align: center;
+    background: var(--surface);
+    color: var(--text-muted);
+    border: 1px solid var(--border);
+    font-family: var(--mono);
+    font-size: 12px;
+    font-weight: 400;
+    padding: 8px 0;
+    cursor: pointer;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    transition: all 0.2s;
+  }
+
+  .style-btn:hover { border-color: #444; color: var(--text); }
+
+  .style-btn.active {
+    color: var(--accent);
+    border-color: var(--accent);
+    background: var(--accent-dim);
+  }
+
+  .output-area {
+    width: 100%;
+    max-width: 960px;
+    padding: 0 24px 24px;
+    display: none;
+  }
+
+  .output-area.visible { display: block; }
+
+  .output-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+  }
+
+  .output-panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    overflow: hidden;
+  }
+
+  .panel-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .panel-header span {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+
+  .panel-actions button {
+    background: transparent;
+    color: var(--text-muted);
+    border: 1px solid var(--border);
+    font-family: var(--mono);
+    font-size: 11px;
+    font-weight: 400;
+    padding: 4px 12px;
+    cursor: pointer;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    transition: all 0.2s;
+  }
+
+  .panel-actions button:hover {
+    color: var(--accent);
+    border-color: var(--accent);
+  }
+
+  .svg-container {
+    padding: 16px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background: #fff;
+  }
+
+  .svg-container svg {
+    width: 100%;
+    height: auto;
+    max-width: 440px;
+  }
+
+  .ascii-container {
+    padding: 16px;
+    overflow-x: auto;
+  }
+
+  #ascii-output {
+    font-family: var(--mono);
+    font-size: 8px;
+    line-height: 1;
+    color: var(--text);
+    white-space: pre;
+    letter-spacing: 0.05em;
+    user-select: all;
+  }
+
+  .output-panel.solo {
+    grid-column: 1 / -1;
+    max-width: 480px;
+    justify-self: center;
+    width: 100%;
+  }
+
+  .meta-row {
+    margin-top: 24px;
+    padding: 16px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--text-muted);
+    line-height: 1.8;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 20px;
+  }
+
+  .meta-row .label { color: var(--accent); }
+
+  .explanation {
+    width: 100%;
+    max-width: 960px;
+    padding: 48px 24px;
+    border-top: 1px solid var(--border);
+  }
+
+  .explanation h2 {
+    font-family: var(--mono);
+    font-size: 13px;
+    font-weight: 400;
+    color: var(--accent);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    margin-bottom: 24px;
+  }
+
+  .explanation p {
+    color: var(--text-muted);
+    font-size: 14px;
+    line-height: 1.75;
+
+    margin-bottom: 16px;
+  }
+
+  .explanation .step { margin-bottom: 28px; }
+
+  .explanation .step-label {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--accent);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    margin-bottom: 8px;
+  }
+
+  .explanation code {
+    font-family: var(--mono);
+    font-size: 13px;
+    color: var(--text);
+    background: var(--surface);
+    padding: 2px 6px;
+    border: 1px solid var(--border);
+  }
+
+  .color-table {
+    margin: 16px 0 24px;
+    border-collapse: collapse;
+    font-family: var(--mono);
+    font-size: 12px;
+  }
+
+  .color-table td {
+    padding: 6px 16px 6px 0;
+    color: var(--text-muted);
+    border-bottom: 1px solid var(--border);
+    vertical-align: middle;
+  }
+
+  .color-table td:first-child { color: var(--text); }
+
+  .color-swatch {
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    margin-right: 8px;
+    vertical-align: middle;
+  }
+
+  footer {
+    width: 100%;
+    max-width: 960px;
+    padding: 24px 24px 48px;
+    border-top: 1px solid var(--border);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  footer a {
+    color: var(--accent);
+    text-decoration: none;
+    font-family: var(--mono);
+    font-size: 12px;
+  }
+
+  footer a:hover { text-decoration: underline; }
+
+  footer .license {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text-muted);
+  }
+
+  .toast {
+    position: fixed;
+    bottom: 24px;
+    left: 50%;
+    transform: translateX(-50%) translateY(20px);
+    background: var(--accent);
+    color: var(--bg);
+    font-family: var(--mono);
+    font-size: 12px;
+    padding: 10px 20px;
+    opacity: 0;
+    transition: all 0.3s;
+    pointer-events: none;
+  }
+
+  .toast.show {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+
+  @media (max-width: 700px) {
+    .output-grid { grid-template-columns: 1fr; }
+    .output-panel.solo { max-width: 100%; }
+    .meta-row { flex-direction: column; gap: 4px; }
+    footer { flex-direction: column; gap: 12px; text-align: center; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>generative identity</h1>
+</header>
+
+<div class="intro">
+  <p>Every input has a visual fingerprint. This tool takes any text and converts it into a deterministic pattern. A 32x32 grid of cubes driven by the cryptographic hash of what you type. Same input, same output, every time. Change one character and the entire pattern shifts.</p>
+  <p>This is a standalone version of the system that generates every image on <a href="https://shinobis.com" target="_blank" rel="noopener">shinobis.com</a>. The kanji <span class="accent-text">忍</span> at the center reads <em>shinobi</em>. It means to endure in silence.</p>
+</div>
+
+<div class="input-area">
+  <input type="text" id="seed-input" placeholder="Start typing. Name, URL, phrase, hash..." autocomplete="off" spellcheck="false">
+  <div class="style-selector">
+    <button class="style-btn active" data-style="both">Both</button>
+    <button class="style-btn" data-style="svg">SVG</button>
+    <button class="style-btn" data-style="ascii">ASCII</button>
+  </div>
+</div>
+
+<div class="output-area" id="output-area">
+  <div class="output-grid" id="output-grid">
+    <div class="output-panel" id="svg-panel">
+      <div class="panel-header">
+        <span>SVG Pattern</span>
+        <div class="panel-actions">
+          <button onclick="downloadSVG()">Download</button>
+        </div>
+      </div>
+      <div class="svg-container" id="svg-container"></div>
+    </div>
+    <div class="output-panel" id="ascii-panel">
+      <div class="panel-header">
+        <span>ASCII Art</span>
+        <div class="panel-actions">
+          <button onclick="copyASCII()">Copy</button>
+        </div>
+      </div>
+      <div class="ascii-container">
+        <div id="ascii-output"></div>
+      </div>
+    </div>
+  </div>
+  <div class="meta-row" id="meta-row"></div>
+</div>
+
+<div class="explanation">
+  <h2>How it works</h2>
+
+  <div class="step">
+    <div class="step-label">1. Extract the DNA</div>
+    <p>The input text is hashed with MD5, producing a unique 32-character hexadecimal string. This hash is the seed for everything visual. A second hash (SHA1) adds entropy. The text length determines color. Three inputs, three layers of identity.</p>
+  </div>
+
+  <div class="step">
+    <div class="step-label">2. Map length to color</div>
+    <p>The character count places each input on a color spectrum. Short inputs get warm gold. Longer ones shift through blue, purple, and terracotta. Anything long enough becomes mint green. Color is data. You can estimate the length of the input just by looking at the pattern.</p>
+    <table class="color-table">
+      <tr><td><span class="color-swatch" style="background:rgb(200,170,100)"></span>Gold</td><td>0 to 9 characters</td></tr>
+      <tr><td><span class="color-swatch" style="background:rgb(100,170,200)"></span>Blue</td><td>10 to 19 characters</td></tr>
+      <tr><td><span class="color-swatch" style="background:rgb(170,100,200)"></span>Purple</td><td>20 to 29 characters</td></tr>
+      <tr><td><span class="color-swatch" style="background:rgb(200,120,100)"></span>Terracotta</td><td>30 to 39 characters</td></tr>
+      <tr><td><span class="color-swatch" style="background:rgb(100,200,150)"></span>Mint</td><td>40+ characters</td></tr>
+    </table>
+  </div>
+
+  <div class="step">
+    <div class="step-label">3. Expand the hash into a grid</div>
+    <p>A single MD5 hash is 32 characters. The grid is 32x32, which means 1,024 cells. To cover every cell the system chains 20 hashes together, producing 640 hexadecimal characters. Each character (value 0 to 15) determines what happens to that cell.</p>
+  </div>
+
+  <div class="step">
+    <div class="step-label">4. Fill the grid</div>
+    <p>Each cell reads one character from the expanded hash and decides its fate. Values 10 to 15 (hex A through F) produce dark cubes. Values 7 to 9 produce accent-colored cubes tinted with the length-based color. Values 5 to 6 produce light gray cubes. Values 0 to 4 leave the cell empty. The distribution is roughly 37% dark, 19% accent, 13% gray, and 31% empty. Dense enough to feel like data. Sparse enough to be readable.</p>
+  </div>
+
+  <div class="step">
+    <div class="step-label">5. Clear the center</div>
+    <p>A 6x6 cell window at the center of the grid is wiped clean. This creates breathing room and makes space for the kanji <code>忍</code>, rendered in the same accent color. The kanji is the visual anchor. It connects every pattern to the same origin regardless of how different they look.</p>
+  </div>
+
+  <div class="step">
+    <div class="step-label">6. Animate</div>
+    <p>The SVG version includes CSS animations. Cells appear from the center outward, with delay calculated by distance. Eight cells are selected deterministically to pulse at different rates. The animation is not random. It is driven by a CRC32 hash of the title hash. Same input, same cells blink, every time.</p>
+  </div>
+
+  <p style="margin-top:32px">The system is deterministic. No randomness, no external dependencies, no server. Everything runs in the browser. The principle is simple: take any unique string, expand it into enough entropy to fill a grid, and map value ranges to visual properties. The content generates its own identity.</p>
+</div>
+
+<footer>
+  <a href="https://shinobis.com" target="_blank" rel="noopener">shinobis.com</a>
+  <span class="license">MIT License</span>
+</footer>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const MD5=(function(){function safeAdd(x,y){const lsw=(x&0xffff)+(y&0xffff);const msw=(x>>16)+(y>>16)+(lsw>>16);return(msw<<16)|(lsw&0xffff)}function bitRotateLeft(n,c){return(n<<c)|(n>>>(32-c))}function md5cmn(q,a,b,x,s,t){return safeAdd(bitRotateLeft(safeAdd(safeAdd(a,q),safeAdd(x,t)),s),b)}function md5ff(a,b,c,d,x,s,t){return md5cmn((b&c)|(~b&d),a,b,x,s,t)}function md5gg(a,b,c,d,x,s,t){return md5cmn((b&d)|(c&~d),a,b,x,s,t)}function md5hh(a,b,c,d,x,s,t){return md5cmn(b^c^d,a,b,x,s,t)}function md5ii(a,b,c,d,x,s,t){return md5cmn(c^(b|~d),a,b,x,s,t)}function binlMD5(x,len){x[len>>5]|=0x80<<(len%32);x[((len+64)>>>9<<4)+14]=len;let a=1732584193,b=-271733879,c=-1732584194,d=271733878;for(let i=0;i<x.length;i+=16){const oa=a,ob=b,oc=c,od=d;a=md5ff(a,b,c,d,x[i],7,-680876936);d=md5ff(d,a,b,c,x[i+1],12,-389564586);c=md5ff(c,d,a,b,x[i+2],17,606105819);b=md5ff(b,c,d,a,x[i+3],22,-1044525330);a=md5ff(a,b,c,d,x[i+4],7,-176418897);d=md5ff(d,a,b,c,x[i+5],12,1200080426);c=md5ff(c,d,a,b,x[i+6],17,-1473231341);b=md5ff(b,c,d,a,x[i+7],22,-45705983);a=md5ff(a,b,c,d,x[i+8],7,1770035416);d=md5ff(d,a,b,c,x[i+9],12,-1958414417);c=md5ff(c,d,a,b,x[i+10],17,-42063);b=md5ff(b,c,d,a,x[i+11],22,-1990404162);a=md5ff(a,b,c,d,x[i+12],7,1804603682);d=md5ff(d,a,b,c,x[i+13],12,-40341101);c=md5ff(c,d,a,b,x[i+14],17,-1502002290);b=md5ff(b,c,d,a,x[i+15],22,1236535329);a=md5gg(a,b,c,d,x[i+1],5,-165796510);d=md5gg(d,a,b,c,x[i+6],9,-1069501632);c=md5gg(c,d,a,b,x[i+11],14,643717713);b=md5gg(b,c,d,a,x[i],20,-373897302);a=md5gg(a,b,c,d,x[i+5],5,-701558691);d=md5gg(d,a,b,c,x[i+10],9,38016083);c=md5gg(c,d,a,b,x[i+15],14,-660478335);b=md5gg(b,c,d,a,x[i+4],20,-405537848);a=md5gg(a,b,c,d,x[i+9],5,568446438);d=md5gg(d,a,b,c,x[i+14],9,-1019803690);c=md5gg(c,d,a,b,x[i+3],14,-187363961);b=md5gg(b,c,d,a,x[i+8],20,1163531501);a=md5gg(a,b,c,d,x[i+13],5,-1444681467);d=md5gg(d,a,b,c,x[i+2],9,-51403784);c=md5gg(c,d,a,b,x[i+7],14,1735328473);b=md5gg(b,c,d,a,x[i+12],20,-1926607734);a=md5hh(a,b,c,d,x[i+5],4,-378558);d=md5hh(d,a,b,c,x[i+8],11,-2022574463);c=md5hh(c,d,a,b,x[i+11],16,1839030562);b=md5hh(b,c,d,a,x[i+14],23,-35309556);a=md5hh(a,b,c,d,x[i+1],4,-1530992060);d=md5hh(d,a,b,c,x[i+4],11,1272893353);c=md5hh(c,d,a,b,x[i+7],16,-155497632);b=md5hh(b,c,d,a,x[i+10],23,-1094730640);a=md5hh(a,b,c,d,x[i+13],4,681279174);d=md5hh(d,a,b,c,x[i],11,-358537222);c=md5hh(c,d,a,b,x[i+3],16,-722521979);b=md5hh(b,c,d,a,x[i+6],23,76029189);a=md5hh(a,b,c,d,x[i+9],4,-640364487);d=md5hh(d,a,b,c,x[i+12],11,-421815835);c=md5hh(c,d,a,b,x[i+15],16,530742520);b=md5hh(b,c,d,a,x[i+2],23,-995338651);a=md5ii(a,b,c,d,x[i],6,-198630844);d=md5ii(d,a,b,c,x[i+7],10,1126891415);c=md5ii(c,d,a,b,x[i+14],15,-1416354905);b=md5ii(b,c,d,a,x[i+5],21,-57434055);a=md5ii(a,b,c,d,x[i+12],6,1700485571);d=md5ii(d,a,b,c,x[i+3],10,-1894986606);c=md5ii(c,d,a,b,x[i+10],15,-1051523);b=md5ii(b,c,d,a,x[i+1],21,-2054922799);a=md5ii(a,b,c,d,x[i+8],6,1873313359);d=md5ii(d,a,b,c,x[i+15],10,-30611744);c=md5ii(c,d,a,b,x[i+6],15,-1560198380);b=md5ii(b,c,d,a,x[i+13],21,1309151649);a=md5ii(a,b,c,d,x[i+4],6,-145523070);d=md5ii(d,a,b,c,x[i+11],10,-1120210379);c=md5ii(c,d,a,b,x[i+2],15,718787259);b=md5ii(b,c,d,a,x[i+9],21,-343485551);a=safeAdd(a,oa);b=safeAdd(b,ob);c=safeAdd(c,oc);d=safeAdd(d,od)}return[a,b,c,d]}function rstrMD5(s){const x=[];for(let i=0;i<s.length*8;i+=8)x[i>>5]|=(s.charCodeAt(i/8)&0xff)<<(i%32);const bin=binlMD5(x,s.length*8);let r='';for(let i=0;i<bin.length*32;i+=8)r+=String.fromCharCode((bin[i>>5]>>>(i%32))&0xff);return r}function hexMD5(s){const hex='0123456789abcdef';const r=rstrMD5(unescape(encodeURIComponent(s)));let out='';for(let i=0;i<r.length;i++){const x=r.charCodeAt(i);out+=hex.charAt((x>>>4)&0x0f)+hex.charAt(x&0x0f)}return out}return hexMD5})();
+
+const SHA1=(function(){function sha1(msg){msg=unescape(encodeURIComponent(msg));const K=[0x5A827999,0x6ED9EBA1,0x8F1BBCDC,0xCA62C1D6];let H0=0x67452301,H1=0xEFCDAB89,H2=0x98BADCFE,H3=0x10325476,H4=0xC3D2E1F0;const len=msg.length;const words=[];for(let i=0;i<len-3;i+=4){words.push(msg.charCodeAt(i)<<24|msg.charCodeAt(i+1)<<16|msg.charCodeAt(i+2)<<8|msg.charCodeAt(i+3))}const rem=len%4;let last=0;for(let i=0;i<rem;i++)last=(last<<8)|msg.charCodeAt(len-rem+i);last=(last<<8)|0x80;last<<=(3-rem)*8;words.push(last);while(words.length%16!==14)words.push(0);words.push(0);words.push(len*8);for(let b=0;b<words.length;b+=16){const W=words.slice(b,b+16);for(let t=16;t<80;t++){const v=W[t-3]^W[t-8]^W[t-14]^W[t-16];W[t]=(v<<1)|(v>>>31)}let a=H0,bb=H1,c=H2,d=H3,e=H4;for(let t=0;t<80;t++){let f,k;if(t<20){f=(bb&c)|(~bb&d);k=K[0]}else if(t<40){f=bb^c^d;k=K[1]}else if(t<60){f=(bb&c)|(bb&d)|(c&d);k=K[2]}else{f=bb^c^d;k=K[3]}const temp=((a<<5)|(a>>>27))+f+e+k+W[t];e=d;d=c;c=(bb<<30)|(bb>>>2);bb=a;a=temp}H0=(H0+a)|0;H1=(H1+bb)|0;H2=(H2+c)|0;H3=(H3+d)|0;H4=(H4+e)|0}function hex32(v){let s='';for(let i=7;i>=0;i--)s+='0123456789abcdef'[(v>>>(i*4))&0xf];return s}return hex32(H0)+hex32(H1)+hex32(H2)+hex32(H3)+hex32(H4)}return sha1})();
+
+function crc32(str){let crc=0xFFFFFFFF;for(let i=0;i<str.length;i++){crc^=str.charCodeAt(i);for(let j=0;j<8;j++)crc=(crc>>>1)^(crc&1?0xEDB88320:0)}return(crc^0xFFFFFFFF)>>>0}
+
+function SeededRNG(seed){let s=seed&0x7fffffff;return{next(min,max){s=(s*1103515245+12345)&0x7fffffff;return min+(s%(max-min+1))}}}
+
+const ACCENT_COLORS=[[200,170,100],[100,170,200],[170,100,200],[200,120,100],[100,200,150]];
+
+function generatePattern(seed){
+  const seedLen=seed.length;
+  const titleHash=MD5(seed);
+  const contentHash=SHA1(seed);
+  const colorIndex=Math.min(4,Math.floor(seedLen/10));
+  const accent=ACCENT_COLORS[colorIndex];
+  const fullHash=titleHash+contentHash+MD5(String(seedLen));
+  let expandedHash='';
+  for(let i=0;i<20;i++)expandedHash+=MD5(fullHash+i);
+  const gridSize=32;
+  const centerStart=(gridSize/2)-3;
+  const centerEnd=(gridSize/2)+3;
+  const blinkSeed=crc32(titleHash+'blink');
+  const blinkRng=SeededRNG(blinkSeed);
+  const blinkCells=[];
+  for(let i=0;i<8;i++)blinkCells.push([blinkRng.next(0,gridSize-1),blinkRng.next(0,gridSize-1)]);
+  const grid=[];
+  let hashIndex=0;
+  for(let row=0;row<gridSize;row++){
+    grid[row]=[];
+    for(let col=0;col<gridSize;col++){
+      const hashChar=expandedHash[hashIndex%expandedHash.length];
+      const hashVal=parseInt(hashChar,16);
+      hashIndex++;
+      const isCenter=row>=centerStart&&row<centerEnd&&col>=centerStart&&col<centerEnd;
+      let type='empty';
+      if(isCenter)type='center';
+      else if(hashVal>=10)type='dark';
+      else if(hashVal>=7)type='accent';
+      else if(hashVal>=5)type='light';
+      let blinkClass=-1;
+      for(let bi=0;bi<blinkCells.length;bi++){if(blinkCells[bi][0]===col&&blinkCells[bi][1]===row){blinkClass=bi%3;break}}
+      grid[row][col]={type,hashVal,blinkClass};
+    }
+  }
+  const dotSeed=crc32(titleHash);
+  const dotRng=SeededRNG(dotSeed);
+  const dots=[];
+  for(let i=0;i<12;i++)dots.push({x:dotRng.next(50,1150),y:dotRng.next(50,1150),r:dotRng.next(2,4)});
+  return{grid,accent,dots,titleHash,gridSize};
+}
+
+function renderSVG(data){
+  const{grid,accent,dots,gridSize}=data;
+  const imgSize=1200;const cubeSize=imgSize/gridSize;const margin=2;
+  let rects='';
+  for(let row=0;row<gridSize;row++){
+    for(let col=0;col<gridSize;col++){
+      const cell=grid[row][col];
+      if(cell.type==='empty'||cell.type==='center')continue;
+      const x=(col*cubeSize+margin).toFixed(1);
+      const y=(row*cubeSize+margin).toFixed(1);
+      const w=(cubeSize-margin*2).toFixed(1);
+      const h=(cubeSize-margin*2).toFixed(1);
+      let fill='';
+      if(cell.type==='dark'){const b=20+(cell.hashVal-10)*8;fill=`rgb(${b},${b},${b})`}
+      else if(cell.type==='accent'){const r=Math.floor(accent[0]*0.7);const g=Math.floor(accent[1]*0.7);const bl=Math.floor(accent[2]*0.7);fill=`rgb(${r},${g},${bl})`}
+      else if(cell.type==='light')fill='rgb(230,230,230)';
+      const distX=Math.abs(col-gridSize/2);const distY=Math.abs(row-gridSize/2);
+      const dist=Math.sqrt(distX*distX+distY*distY);
+      const delay=(dist*0.03).toFixed(2);
+      let cellClass='cell';
+      if(cell.blinkClass>=0)cellClass=`blink blink-${cell.blinkClass}`;
+      rects+=`    <rect x="${x}" y="${y}" width="${w}" height="${h}" fill="${fill}" class="${cellClass}" style="--d:${delay}s"/>\n`;
+    }
+  }
+  let dotsStr='';
+  for(const d of dots){const r=Math.floor(accent[0]*0.8);const g=Math.floor(accent[1]*0.8);const bl=Math.floor(accent[2]*0.8);dotsStr+=`    <circle cx="${d.x}" cy="${d.y}" r="${d.r}" fill="rgb(${r},${g},${bl})"/>\n`}
+  const kanjiR=Math.floor(accent[0]*0.8);const kanjiG=Math.floor(accent[1]*0.8);const kanjiB=Math.floor(accent[2]*0.8);
+  const borderR=Math.floor(accent[0]*0.5);const borderG=Math.floor(accent[1]*0.5);const borderB=Math.floor(accent[2]*0.5);
+  const center=imgSize/2;
+  return`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${imgSize} ${imgSize}" width="${imgSize}" height="${imgSize}">
+  <style>
+    rect.cell{opacity:0;animation:cellIn 0.6s ease var(--d,0s) forwards}
+    .blink-0{animation:cellIn 0.6s ease var(--d,0s) forwards,pulse0 3.5s ease-in-out calc(var(--d,0s)+1.2s) infinite}
+    .blink-1{animation:cellIn 0.6s ease var(--d,0s) forwards,pulse1 5.5s ease-in-out calc(var(--d,0s)+1.2s) infinite}
+    .blink-2{animation:cellIn 0.6s ease var(--d,0s) forwards,pulse2 4s ease-in-out calc(var(--d,0s)+1.2s) infinite}
+    @keyframes cellIn{0%{opacity:0}100%{opacity:1}}
+    @keyframes pulse0{0%,100%{opacity:1}50%{opacity:0.3}}
+    @keyframes pulse1{0%,100%{opacity:0.9}50%{opacity:0.2}}
+    @keyframes pulse2{0%,100%{opacity:1}40%{opacity:0.15}}
+  </style>
+  <rect width="${imgSize}" height="${imgSize}" fill="white"/>
+${rects}
+${dotsStr}
+  <text x="${center}" y="${center}" text-anchor="middle" dominant-baseline="central" font-size="150" font-family="'Noto Sans CJK JP','Hiragino Kaku Gothic Pro','MS Gothic',sans-serif" fill="rgb(${kanjiR},${kanjiG},${kanjiB})" opacity="0" style="animation:cellIn 0.6s ease 0.8s forwards">\u5fcd</text>
+  <rect x="0" y="0" width="${imgSize}" height="${imgSize}" fill="none" stroke="rgb(${borderR},${borderG},${borderB})" stroke-width="1"/>
+</svg>`;
+}
+
+function renderASCII(data){
+  const{grid,gridSize}=data;
+  const chars={dark:'\u2588',accent:'\u2593',light:'\u2592',empty:' ',center:' '};
+  let output='';
+  for(let row=0;row<gridSize;row++){let line='';for(let col=0;col<gridSize;col++){const cell=grid[row][col];line+=chars[cell.type]||' '}output+=line+'\n'}
+  return output;
+}
+
+let currentStyle='both';let currentSVG='';let currentASCII='';let currentSeed='';
+
+document.querySelectorAll('.style-btn').forEach(btn=>{
+  btn.addEventListener('click',()=>{
+    document.querySelectorAll('.style-btn').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    currentStyle=btn.dataset.style;
+    if(currentSeed)generate(currentSeed);
+  });
+});
+
+let debounceTimer=null;
+document.getElementById('seed-input').addEventListener('input',(e)=>{
+  const seed=e.target.value.trim();
+  clearTimeout(debounceTimer);
+  if(!seed){document.getElementById('output-area').classList.remove('visible');currentSeed='';return}
+  debounceTimer=setTimeout(()=>generate(seed),150);
+});
+
+function generate(seed){
+  currentSeed=seed;
+  const data=generatePattern(seed);
+  const svgPanel=document.getElementById('svg-panel');
+  const asciiPanel=document.getElementById('ascii-panel');
+  if(currentStyle==='svg'){svgPanel.style.display='block';asciiPanel.style.display='none';svgPanel.classList.add('solo');asciiPanel.classList.remove('solo')}
+  else if(currentStyle==='ascii'){svgPanel.style.display='none';asciiPanel.style.display='block';asciiPanel.classList.add('solo');svgPanel.classList.remove('solo')}
+  else{svgPanel.style.display='block';asciiPanel.style.display='block';svgPanel.classList.remove('solo');asciiPanel.classList.remove('solo')}
+  currentSVG=renderSVG(data);
+  currentASCII=renderASCII(data);
+  document.getElementById('svg-container').innerHTML=currentSVG;
+  document.getElementById('ascii-output').textContent=currentASCII;
+  const accentName=['gold','blue','purple','terracotta','mint'][Math.min(4,Math.floor(seed.length/10))];
+  document.getElementById('meta-row').innerHTML=
+    `<span><span class="label">seed</span> ${escapeHTML(seed)}</span>`+
+    `<span><span class="label">md5</span> ${data.titleHash}</span>`+
+    `<span><span class="label">accent</span> ${accentName}</span>`+
+    `<span><span class="label">grid</span> ${data.gridSize}\u00d7${data.gridSize}</span>`+
+    `<span><span class="label">cells</span> ${data.gridSize*data.gridSize}</span>`;
+  document.getElementById('output-area').classList.add('visible');
+}
+
+function escapeHTML(str){return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;')}
+
+function downloadSVG(){
+  if(!currentSVG)return;
+  const blob=new Blob([currentSVG],{type:'image/svg+xml'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url;a.download=`generative-identity-${currentSeed.replace(/[^a-zA-Z0-9]/g,'-').substring(0,40)}.svg`;
+  a.click();URL.revokeObjectURL(url);showToast('SVG downloaded');
+}
+
+function copyASCII(){
+  if(!currentASCII)return;
+  navigator.clipboard.writeText(currentASCII).then(()=>{showToast('ASCII copied to clipboard')}).catch(()=>{
+    const ta=document.createElement('textarea');ta.value=currentASCII;document.body.appendChild(ta);ta.select();document.execCommand('copy');document.body.removeChild(ta);showToast('ASCII copied to clipboard');
+  });
+}
+
+function showToast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2000)}
+</script>
+</body>
+</html>
