@@ -64,7 +64,6 @@ If you want to use the core engine to automate image generation on your server.
 git clone [https://github.com/Shinobis-dev/generative-identity.git](https://github.com/Shinobis-dev/generative-identity.git)
 cd generative-identity
 php generate.php --title="My First Post" --content="Your article content here"
-```
 
 ### As a standalone script
 
