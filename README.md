@@ -102,7 +102,7 @@ The web generator uses input length instead of character count, with thresholds 
 
 Most blogs use stock photos or AI-generated images that are interchangeable between any site. A generative system creates images that are unique to your content, deterministic, lightweight (2 to 8KB for SVG), and computationally verifiable. The image is a direct function of the text. Change one word and the entire pattern shifts.
 
-Read more: [Generative Identity: why my blog images are born from content](https://shinobis.com/en/generative-identity-blog-images-born-from-content-no-stock-photos)
+Read more: [Generative Identity: why my blog images are born from content]([https://shinobis.com/en/generative-identity)
 
 ## License
 
