@@ -89,7 +89,7 @@
   .style-selector {
     display: flex;
     gap: 8px;
-    margin-top: 12px;
+    flex: 1;
   }
 
   .style-btn {
@@ -114,6 +114,53 @@
     color: var(--accent);
     border-color: var(--accent);
     background: var(--accent-dim);
+  }
+
+  .options-row {
+    display: flex;
+    gap: 12px;
+    margin-top: 12px;
+    align-items: center;
+  }
+
+  .option-group {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .option-group label {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+
+  #center-char {
+    width: 40px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    color: var(--accent);
+    font-family: var(--mono);
+    font-size: 15px;
+    padding: 6px;
+    text-align: center;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+
+  #center-char:focus { border-color: var(--accent); }
+
+  #comment-format {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    color: var(--text-muted);
+    font-family: var(--mono);
+    font-size: 11px;
+    padding: 6px 8px;
+    outline: none;
+    cursor: pointer;
   }
 
   .output-area {
@@ -342,9 +389,41 @@
     .output-grid { grid-template-columns: 1fr; }
     .output-panel.solo { max-width: 100%; }
     .meta-row { flex-direction: column; gap: 4px; }
+    .options-row { flex-wrap: wrap; }
     footer { flex-direction: column; gap: 12px; text-align: center; }
   }
 </style>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "WebApplication",
+  "name": "Generative Identity",
+  "description": "Deterministic visual identity generator. Converts any text into a unique SVG pattern and ASCII art using cryptographic hashes. Same input, same output, every time.",
+  "url": "https://shinobis-dev.github.io/generative-identity/",
+  "applicationCategory": "DesignApplication",
+  "operatingSystem": "All",
+  "browserRequirements": "Requires JavaScript",
+  "offers": {
+    "@type": "Offer",
+    "price": "0",
+    "priceCurrency": "USD"
+  },
+  "creator": {
+    "@type": "Person",
+    "name": "Diego Sanchez",
+    "alternateName": "Shinobis",
+    "url": "https://shinobis.com"
+  },
+  "featureList": [
+    "Deterministic pattern generation from any text",
+    "SVG output with CSS animations",
+    "ASCII art output with block characters",
+    "Zero server dependencies",
+    "MD5 and SHA1 implemented in pure JavaScript",
+    "Customizable center character"
+  ]
+}
+</script>
 </head>
 <body>
 
@@ -359,10 +438,25 @@
 
 <div class="input-area">
   <input type="text" id="seed-input" placeholder="Start typing. Name, URL, phrase, hash..." autocomplete="off" spellcheck="false">
-  <div class="style-selector">
-    <button class="style-btn active" data-style="both">Both</button>
-    <button class="style-btn" data-style="svg">SVG</button>
-    <button class="style-btn" data-style="ascii">ASCII</button>
+  <div class="options-row">
+    <div class="style-selector">
+      <button class="style-btn active" data-style="both">Both</button>
+      <button class="style-btn" data-style="svg">SVG</button>
+      <button class="style-btn" data-style="ascii">ASCII</button>
+    </div>
+    <div class="option-group">
+      <label for="center-char">Center</label>
+      <input type="text" id="center-char" value="忍" maxlength="2">
+    </div>
+    <div class="option-group">
+      <label for="comment-format">ASCII format</label>
+      <select id="comment-format">
+        <option value="plain">Plain</option>
+        <option value="slash">// comment</option>
+        <option value="hash"># comment</option>
+        <option value="block">/* block */</option>
+      </select>
+    </div>
   </div>
 </div>
 
@@ -498,6 +592,7 @@ function generatePattern(seed){
 function renderSVG(data){
   const{grid,accent,dots,gridSize}=data;
   const imgSize=1200;const cubeSize=imgSize/gridSize;const margin=2;
+  const centerChar=document.getElementById('center-char').value||'\u5fcd';
   let rects='';
   for(let row=0;row<gridSize;row++){
     for(let col=0;col<gridSize;col++){
@@ -514,8 +609,8 @@ function renderSVG(data){
       const distX=Math.abs(col-gridSize/2);const distY=Math.abs(row-gridSize/2);
       const dist=Math.sqrt(distX*distX+distY*distY);
       const delay=(dist*0.03).toFixed(2);
-      let cellClass='cell';
-      if(cell.blinkClass>=0)cellClass=`blink blink-${cell.blinkClass}`;
+      let cellClass='gi-cell';
+      if(cell.blinkClass>=0)cellClass=`gi-blink gi-blink-${cell.blinkClass}`;
       rects+=`    <rect x="${x}" y="${y}" width="${w}" height="${h}" fill="${fill}" class="${cellClass}" style="--d:${delay}s"/>\n`;
     }
   }
@@ -526,19 +621,19 @@ function renderSVG(data){
   const center=imgSize/2;
   return`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${imgSize} ${imgSize}" width="${imgSize}" height="${imgSize}">
   <style>
-    rect.cell{opacity:0;animation:cellIn 0.6s ease var(--d,0s) forwards}
-    .blink-0{animation:cellIn 0.6s ease var(--d,0s) forwards,pulse0 3.5s ease-in-out calc(var(--d,0s)+1.2s) infinite}
-    .blink-1{animation:cellIn 0.6s ease var(--d,0s) forwards,pulse1 5.5s ease-in-out calc(var(--d,0s)+1.2s) infinite}
-    .blink-2{animation:cellIn 0.6s ease var(--d,0s) forwards,pulse2 4s ease-in-out calc(var(--d,0s)+1.2s) infinite}
-    @keyframes cellIn{0%{opacity:0}100%{opacity:1}}
-    @keyframes pulse0{0%,100%{opacity:1}50%{opacity:0.3}}
-    @keyframes pulse1{0%,100%{opacity:0.9}50%{opacity:0.2}}
-    @keyframes pulse2{0%,100%{opacity:1}40%{opacity:0.15}}
+    rect.gi-cell{opacity:0;animation:giCellIn 0.6s ease var(--d,0s) forwards}
+    .gi-blink-0{animation:giCellIn 0.6s ease var(--d,0s) forwards,giPulse0 3.5s ease-in-out calc(var(--d,0s)+1.2s) infinite}
+    .gi-blink-1{animation:giCellIn 0.6s ease var(--d,0s) forwards,giPulse1 5.5s ease-in-out calc(var(--d,0s)+1.2s) infinite}
+    .gi-blink-2{animation:giCellIn 0.6s ease var(--d,0s) forwards,giPulse2 4s ease-in-out calc(var(--d,0s)+1.2s) infinite}
+    @keyframes giCellIn{0%{opacity:0}100%{opacity:1}}
+    @keyframes giPulse0{0%,100%{opacity:1}50%{opacity:0.3}}
+    @keyframes giPulse1{0%,100%{opacity:0.9}50%{opacity:0.2}}
+    @keyframes giPulse2{0%,100%{opacity:1}40%{opacity:0.15}}
   </style>
   <rect width="${imgSize}" height="${imgSize}" fill="white"/>
 ${rects}
 ${dotsStr}
-  <text x="${center}" y="${center}" text-anchor="middle" dominant-baseline="central" font-size="150" font-family="'Noto Sans CJK JP','Hiragino Kaku Gothic Pro','MS Gothic',sans-serif" fill="rgb(${kanjiR},${kanjiG},${kanjiB})" opacity="0" style="animation:cellIn 0.6s ease 0.8s forwards">\u5fcd</text>
+  <text x="${center}" y="${center}" text-anchor="middle" dominant-baseline="central" font-size="150" font-family="'Noto Sans CJK JP','Hiragino Kaku Gothic Pro','MS Gothic',sans-serif" fill="rgb(${kanjiR},${kanjiG},${kanjiB})" opacity="0" style="animation:giCellIn 0.6s ease 0.8s forwards">${centerChar}</text>
   <rect x="0" y="0" width="${imgSize}" height="${imgSize}" fill="none" stroke="rgb(${borderR},${borderG},${borderB})" stroke-width="1"/>
 </svg>`;
 }
@@ -568,6 +663,10 @@ document.getElementById('seed-input').addEventListener('input',(e)=>{
   clearTimeout(debounceTimer);
   if(!seed){document.getElementById('output-area').classList.remove('visible');currentSeed='';return}
   debounceTimer=setTimeout(()=>generate(seed),150);
+});
+
+document.getElementById('center-char').addEventListener('input',()=>{
+  if(currentSeed)generate(currentSeed);
 });
 
 function generate(seed){
@@ -605,8 +704,17 @@ function downloadSVG(){
 
 function copyASCII(){
   if(!currentASCII)return;
-  navigator.clipboard.writeText(currentASCII).then(()=>{showToast('ASCII copied to clipboard')}).catch(()=>{
-    const ta=document.createElement('textarea');ta.value=currentASCII;document.body.appendChild(ta);ta.select();document.execCommand('copy');document.body.removeChild(ta);showToast('ASCII copied to clipboard');
+  const fmt=document.getElementById('comment-format').value;
+  let output=currentASCII;
+  if(fmt==='slash'){
+    output=currentASCII.split('\n').map(line=>line?'// '+line:'//').join('\n');
+  }else if(fmt==='hash'){
+    output=currentASCII.split('\n').map(line=>line?'# '+line:'#').join('\n');
+  }else if(fmt==='block'){
+    output='/*\n'+currentASCII+'*/';
+  }
+  navigator.clipboard.writeText(output).then(()=>{showToast('ASCII copied to clipboard')}).catch(()=>{
+    const ta=document.createElement('textarea');ta.value=output;document.body.appendChild(ta);ta.select();document.execCommand('copy');document.body.removeChild(ta);showToast('ASCII copied to clipboard');
   });
 }
 
