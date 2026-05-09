@@ -2,9 +2,9 @@
 
 A PHP system that generates unique visual identities for blog posts based on their content. Every image is deterministic — the same content always produces the same image. No stock photos. No DALL-E. No Midjourney. Just algorithms and your words.
 
-**[See it in action →](https://shinobis.com)**
+**[Try it live →](https://shinobis-dev.github.io/generative-identity/)** — Type any text and watch the pattern generate in real time. No backend, no dependencies, everything runs in the browser.
 
-![Example of generative images](https://shinobis.com/uploads/social/post-71-es.png)
+**[See it in action →](https://shinobis.com)**
 
 ## How It Works
 
